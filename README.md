@@ -107,3 +107,90 @@ cap.release()
 GPIO.cleanup()      
 ```
 此为行走逻辑部分，满足canforward()的条件时，小车会追踪当前正在处理的颜色块，在距离不满足后，PID停止，小车进入getthrough（）函数开始通过方块，通过后，如果有还有需要处理的方块，则继续进行追踪并绕行，若没有需要处理的方块，小车开始进入直行（建议在通过所需方块后再在队列中多加入一个颜色）
+
+## 注意事项
+本代码并没有加入任何findtarget()函数或功能，因此需要在getthrough()函数执行完成后保证小车能够看到下一个需要处理的色块，然而由于getthrough函数处理方式较为粗犷，当所行驶路面不平整时会导致系统的稳定性并不可观，因此此代码仅建议参考，并不建议使用。
+
+## 可能需要调整部分
+```python
+def stop():
+    pwmright.ChangeDutyCycle(0)
+    pwmleft.ChangeDutyCycle(0)
+
+def shortforward(gotime):
+    pwmright.ChangeDutyCycle(27)
+    pwmleft.ChangeDutyCycle(25)
+    time.sleep(gotime)
+    stop()
+    time.sleep(1)
+def turnright(gotime):
+    pwmright.ChangeDutyCycle(32)
+    pwmleft.ChangeDutyCycle(0)
+    time.sleep(gotime)
+    stop()
+    time.sleep(1)
+    
+def turnleft(gotime):
+    pwmleft.ChangeDutyCycle(32)
+    pwmright.ChangeDutyCycle(0)
+    time.sleep(gotime)
+    stop()
+    time.sleep(1)
+```
+四个函数中的pwm.ChangeDutyCycle（）中的占空比，以保证小车获得良好的短距离直行效果或转弯速度
+
+```python
+ridealspeed = 1.9#1.9
+lidealspeed = 2
+```
+pidforward()函数中的ridealspeed与lidealspeed(),在多次尝试调整PID参数仍然无果后，可以尝试调整不同的idealspeed以达到使得小车左右轮速度可以大致相同的目的
+
+```
+def offset(image):
+    global nowColor
+
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    lower=lowerRange[nowColor]
+    upper=upperRange[nowColor]
+    mask = cv2.inRange(hsv, lower, upper)
+    kernel=np.ones((3,3),np.uint8)
+    mask=cv2.erode(mask,kernel,iterations=2)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+    mask = cv2.dilate(mask, kernel, iterations=5)
+```
+若在调整时希望获得添加掩膜后的图像，可在以上列出代码尾部添加cv2.imshow("mask",mask)以及cv2.waitKey(1),在代码中已注释掉，去除注释即可
+
+```python
+if nowColor=="green":
+        if pixel_count < 700
+            return 0
+        return 1
+```
+此为canforward（image,threshold）函数定义中对于由中间穿行的的处理，由于编写代码时并未考虑适配性，当需要穿行的颜色改变时，需要在此处也做出改变，除此之外 if pixel_count < 700 （当需要穿行的方块在摄像头中的像素小于700，判定为不能canforward）也需要在调整中酌情修改
+
+```python
+if nowColor in ["red", "yellow"]:
+        largest_contour = max(contours, key=cv2.contourArea)
+        M = cv2.moments(largest_contour)
+        if M["m00"] != 0:
+            cX = int(M["m10"] / M["m00"])
+            offset_x = cX - image_center_x
+            return offset_x
+        return 0
+    elif nowColor == "green":
+        sorted_contours = sorted(contours, key=cv2.contourArea, reverse=True)[:2]
+        centers = []
+        for cnt in sorted_contours:
+            M = cv2.moments(cnt)
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                centers.append(cX)
+        if len(centers) >= 2:
+            mid_x = (centers[0] + centers[1]) // 2
+            offset_x = mid_x - image_center_x
+            return offset_x
+        return 0
+```
+此处也要随颜色的改变而修改，例如，若遇到需要从两个红块间穿过，则将 elif nowColor == "green" 更改为 nowColor == "red"
+
