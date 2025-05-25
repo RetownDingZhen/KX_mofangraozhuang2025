@@ -77,6 +77,33 @@ Colors.put("red")
 
 print("ready")
 input()
-```
-此部分为颜色的初始化以及调整遇到不同颜色需要做出的动作的部分，不同颜色的HSV参数可根据实际情况修改。在Color2Direction中修改小车面对不同颜色时做出的反应。在队列中预先按顺序填入颜色块处理的顺序，以代码中的顺序为例，代码会以红色、绿色、黄色、红色的顺序处理颜色。
+nowColor = Colors.get()
+nowTurnDirection = Color2Direction[nowColor]
 
+thread1 = threading.Thread(target = getxc)
+thread1.start()
+time.sleep(3)
+```
+此部分为颜色的初始化以及调整遇到不同颜色需要做出的动作的部分，不同颜色的HSV参数可根据实际情况修改。在Color2Direction中修改小车面对不同颜色时做出的反应。在队列中预先按顺序填入颜色块处理的顺序，以代码中的顺序为例，代码会以红色、绿色、黄色、红色的顺序处理颜色。在显示ready后，随意输入以开始行走。
+
+```python
+try:
+    while 1:
+        pidforward()
+        print("remove")
+        time.sleep(1)
+        getthrough()
+        if Colors.empty():
+            pidforward()
+        else:
+            nowColor = Colors.get()
+            nowTurnDirection = Color2Direction[nowColor]
+except KeyboardInterrupt:
+    pass
+
+pwmright.stop()
+pwmleft.stop()
+cap.release()
+GPIO.cleanup()      
+```
+此为行走逻辑部分，满足canforward()的条件时，小车会追踪当前正在处理的颜色块，在距离不满足后，PID停止，小车进入getthrough（）函数开始通过方块，通过后，如果有还有需要处理的方块，则继续进行追踪并绕行，若没有需要处理的方块，小车开始进入直行（建议在通过所需方块后再在队列中多加入一个颜色）
