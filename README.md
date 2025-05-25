@@ -144,7 +144,7 @@ def turnleft(gotime):
     stop()
     time.sleep(1)
 ```
-四个函数中的pwm.ChangeDutyCycle（）中的占空比，以保证小车获得良好的短距离直行效果或转弯速度
+四个函数中的pwm.ChangeDutyCycle()中的占空比，以保证小车获得良好的短距离直行效果或转弯速度
 
 ```python
 ridealspeed = 1.9
