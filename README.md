@@ -4,7 +4,7 @@
 本代码与电子系统导论并无直接关联，代码稳定性较差，如非走投无路并不建议采用此代码，若使用过程中产生任何问题均与本人无关
 ## 函数解析
 ### 以下为控制部分：
-- **stop（）**：用于将小车左右轮占空比调整为0，使小车运动停止
+- **stop()**：用于将小车左右轮占空比调整为0，使小车运动停止
 
 - **shortforward(gotime)**:直接设置小车的左右轮占空比达到使得小车短距离直行的目的，其中gotime为需要小车短距离直行的时间，注意本函数不使用PID算法，无法进行长距离执行，函数中的左右轮占空比需要调整以达到小车可以大致直行以及速度合适的效果
 
@@ -14,11 +14,15 @@
 
 - **getthrough()**:在不同的nowTurnDirection的设置下，产生不同的绕行效果，以右转为例，小车会做出右转、直行、左转、直行的动作，完成绕过方块的行为，如发现绕行时转弯幅度过大或过小可在此函数的定义部分修改
 
-以下为图像处理部分：
+### 以下为图像处理部分：
 - **imgget()**:此函数用作不断从摄像头获取图像
+
 - **canforward(image,threshold)**:此函数接受imgget（）函数获取的图像，对其进行创建掩膜等一系列处理，最终计算非零像素的数量，与threshold对比以评估距方块的距离。注意当颜色为需要从中间穿行的颜色时时此函数评估方式与其他颜色不同，并不使用threshold，此时的评估标准需要在函数定义内部进行修改！！！本代码配套的摄像头为640*480像素，即总共307200个像素点，酌情输入threshold以判断距离
+
 - **offset(image)**：函数对imgget()获取图像进行创建掩膜等一系列处理，并查找轮廓，根据颜色获取对应的中心点坐标，最终计算摄像头横向中点与颜色块中心点坐标的距离以实现通过改进的PID算法追踪所需颜色块或颜色块中点。
+
 - **getxc()**:imgget函数与offset(image)函数的组合，以达到在新开线程中不断获取xc以提交PID算法的效果
+
 ## 代码主体解析
 ```python
 cap = cv2.VideoCapture(0)
@@ -113,6 +117,9 @@ GPIO.cleanup()
 
 ## 可能需要调整部分
 ```python
+
+```
+```python
 def stop():
     pwmright.ChangeDutyCycle(0)
     pwmleft.ChangeDutyCycle(0)
@@ -140,10 +147,16 @@ def turnleft(gotime):
 四个函数中的pwm.ChangeDutyCycle（）中的占空比，以保证小车获得良好的短距离直行效果或转弯速度
 
 ```python
-ridealspeed = 1.9#1.9
+ridealspeed = 1.9
 lidealspeed = 2
+l_origin_duty = 0
+r_origin_duty = 0
+pwmright.start(l_origin_duty)
+pwmleft.start(r_origin_duty)
+L_control = PID(15, 0, 0.01, 0.03, lidealspeed, l_origin_duty)
+R_control = PID(13.7, 0, 0.01, 0, ridealspeed, r_origin_duty)
 ```
-pidforward()函数中的ridealspeed与lidealspeed(),在多次尝试调整PID参数仍然无果后，可以尝试调整不同的idealspeed以达到使得小车左右轮速度可以大致相同的目的
+此为pidforward()函数的部分。PID参数在L_control与R_control中修改，在调整直行时可以先将Kc设置为0以让小车不受到颜色干扰。若在多次尝试调整PID参数仍然无果或发现车速过慢，可以尝试调整不同的ridealspeed与lidealspeed()以达到使得小车左右轮速度可以大致相同或提高车速的目的。Kc为0.03较为合理，不建议修改，且Kc只对一个车轮生效，然而若发现小车看到色块向反方向转向，可以分析offset()函数的逻辑，将赋值Kc的车轮从L_control变为R_control，即将L_control中的0.03变为0，R_control中的0变为0.03 or sth other
 
 ```
 def offset(image):
@@ -194,3 +207,58 @@ if nowColor in ["red", "yellow"]:
 ```
 此处也要随颜色的改变而修改，例如，若遇到需要从两个红块间穿过，则将 elif nowColor == "green" 更改为 nowColor == "red"
 
+```python
+EA, I2, I1, EB, I4, I3, LS, RS = (13, 19, 26, 16, 20, 21, 6, 12)
+LEFT=1
+RIGHT=2
+MID=3
+FREQUENCY = 50
+GPIO.setmode(GPIO.BCM)
+GPIO.setup([EA, I2, I1, EB, I4, I3], GPIO.OUT)
+GPIO.setup([LS, RS],GPIO.IN,pull_up_down=GPIO.PUD_UP)
+GPIO.output([EA, I2, EB, I3], GPIO.LOW)
+GPIO.output([I1, I4], GPIO.HIGH)
+
+pwmright = GPIO.PWM(EA, FREQUENCY)
+pwmleft = GPIO.PWM(EB, FREQUENCY)#左右可能设置反，调整此处
+pwmright.start(0)
+pwmleft.start(0)
+
+lspeed = 0
+rspeed = 0
+lcounter = 0
+rcounter = 0
+xc=0
+
+last_ltime = None
+last_rtime = None
+ltotal_time = 0
+rtotal_time = 0
+
+lower_red = np.array([0, 80, 50])
+upper_red = np.array([8, 255, 220])
+
+lower_green = np.array([35, 61, 64])
+upper_green = np.array([77, 200, 200])
+
+lower_yellow = np.array([15, 70, 40])
+upper_yellow = np.array([34, 200, 200])
+
+lowerRange = {"red": lower_red, "green": lower_green, "yellow": lower_yellow}
+upperRange = {"red": upper_red, "green": upper_green, "yellow": upper_yellow}
+
+
+Color2Direction = {"red":RIGHT, "green":MID, "yellow":LEFT}
+Colors = queue.Queue(4)
+
+Colors.put("red")
+Colors.put("green")
+Colors.put("yellow")
+Colors.put("red")
+```
+GPIO针脚与此处不同则酌情修改，若发现存在左右轮设置反，则将pwmright = GPIO.PWM(EA, FREQUENCY)改为pwmleft,原pwmleft也做相同处理即可。遇到不同颜色的行为根据需要更改，不要忘记函数定义中的某些部分也要同时加以修改。如需要其他颜色则自行测试HSV参数并添加，请注意颜色的HSV范围输入opencv时需要除以2
+
+若有遗漏可自行分析或改进代码后酌情进行修改
+
+## 最终声明
+本代码由于已经叙述的原因稳定性欠佳，因此不建议做实操使用，仅作初步的学习以及参考使用。本人也未将此代码用于售卖或任何盈利目的，亦未对其进行任何宣传，在使用代码的过程中产生仍和问题均与本人无关。
