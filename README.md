@@ -155,7 +155,7 @@ R_control = PID(13.7, 0, 0.01, 0, ridealspeed, r_origin_duty)
 ```
 此为pidforward()函数的部分。PID参数在L_control与R_control中修改，在调整直行时可以先将Kc设置为0以让小车不受到颜色干扰。若在多次尝试调整PID参数仍然无果或发现车速过慢，可以尝试调整不同的ridealspeed与lidealspeed()以达到使得小车左右轮速度可以大致相同或提高车速的目的。Kc为0.03较为合理，不建议修改，且Kc只对一个车轮生效，然而若发现小车看到色块向反方向转向，可以分析offset()函数的逻辑，将赋值Kc的车轮从L_control变为R_control，即将L_control中的0.03变为0，R_control中的0变为0.03 or sth other
 
-```
+```python
 def offset(image):
     global nowColor
 
