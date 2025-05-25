@@ -172,7 +172,7 @@ def offset(image):
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
     mask = cv2.dilate(mask, kernel, iterations=5)
 ```
-若在调整时希望获得添加掩膜后的图像，可在以上列出代码尾部添加cv2.imshow("mask",mask)以及cv2.waitKey(1),在代码中已注释掉，去除注释即可
+若在调整时希望获得添加掩膜后的图像，可在以上列出代码尾部添加cv2.imshow("mask",mask)以及cv2.waitKey(1),此句在代码中已注释掉。去除注释即可
 
 ```python
 if nowColor=="green":
