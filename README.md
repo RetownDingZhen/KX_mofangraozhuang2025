@@ -117,9 +117,6 @@ GPIO.cleanup()
 
 ## 可能需要调整部分
 ```python
-
-```
-```python
 def stop():
     pwmright.ChangeDutyCycle(0)
     pwmleft.ChangeDutyCycle(0)
